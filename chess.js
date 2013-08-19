@@ -244,7 +244,7 @@ function InitializeGame() {
 	GetPossibleDestinationCellsForPawn = function(row, column) {
 	
 		if(rows[row][column].data.css_class[0] == 'white') {
-			if(rows[row+1][column].data.css_class[0] == '') {
+			if(rows[row+1][column].data.css_class[0] != 'white') {
 				PossibleDestinationCell.push(rows[row+1][column].td);
 			}
 			if(row === 2 && (rows[row+2][column].data.css_class[0] != 'white')) {
@@ -262,7 +262,7 @@ function InitializeGame() {
 			}
 		}
 		if(rows[row][column].data.css_class[0] == 'black') {
-			if(rows[row-1][column].data.css_class[0] == '') {
+			if(rows[row-1][column].data.css_class[0] != 'black') {
 				PossibleDestinationCell.push(rows[row-1][column].td);
 			}
 			if(row === 7 && (rows[row-2][column].data.css_class[0] != 'black')) {
