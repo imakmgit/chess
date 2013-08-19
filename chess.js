@@ -1,10 +1,19 @@
 function InitializeGame() {
 	
 	var rows = new Array(),
+	SourceCell = {'row' : 0, 'column' : 0},
+	PossibleDestinationCell = new Array(),
+	UndoSteps = new Array(),
+	Steps = function(row, column, cell) {
+		this.row = row;
+		this.column = column;
+		this.cell = cell;
+	},
 	Cell = function(team_color, name, text) {
 		
 		this.css_class = [ team_color, name ];
 		this.text = text;
+		this.piece_name = name;
 	}, 
 	RowCells = function(row_no) {
 		
@@ -25,20 +34,24 @@ function InitializeGame() {
 		//if row_no == 1, white  else black
 		if(row_no == 1) {
 			color = 'white';
-			return ['', new Cell(color, 'rook', '&#9814;'), new Cell(color, 'knight', '&#9816;'), new Cell(color, 'bishop', '&#9815;'), 
-					new Cell(color, 'king', '&#9812;'), new Cell(color, 'queen', '&#9813;'), 
-					new Cell(color, 'bishop', '&#9815;'), new Cell(color, 'knight', '&#9816;'), new Cell(color, 'rook', '&#9814;') ];
+			return ['', {'data' : new Cell(color, 'rook', '&#9814;'), 'td' : ''   }, {'data' : new Cell(color, 'knight', '&#9816;'), 'td': ''   }, 
+						{'data' : new Cell(color, 'bishop', '&#9815;'), 'td' : '' }, {'data' : new Cell(color, 'king', '&#9812;'), 'td' : ''    }, 
+						{'data' : new Cell(color, 'queen', '&#9813;'), 'td' : ''  }, {'data' : new Cell(color, 'bishop', '&#9815;'),  'td' : '' },
+						{'data' : new Cell(color, 'knight', '&#9816;'), 'td' : '' }, {'data' : new Cell(color, 'rook', '&#9814;'), 'td' : ''    } ];
 		} else {
 			color = 'black';
-			return ['', new Cell(color, 'rook', '&#9820;'), new Cell(color, 'knight', '&#9822;'), new Cell(color, 'bishop', '&#9821;'), 
-					new Cell(color, 'queen', '&#9819;'), new Cell(color, 'king', '&#9818;'), 
-					new Cell(color, 'bishop', '&#9821;'), new Cell(color, 'knight', '&#9822;'), new Cell(color, 'rook', '&#9820;') ];
+			return ['', {'data' : new Cell(color, 'rook', '&#9820;'), 'td' : ''   }, {'data' : new Cell(color, 'knight', '&#9822;'), 'td' : '' }, 
+						{'data' : new Cell(color, 'bishop', '&#9821;'), 'td' : '' }, {'data' : new Cell(color, 'queen', '&#9819;'), 'td' : ''  },
+						{'data' : new Cell(color, 'king', '&#9818;'), 'td' : ''   }, {'data' : new Cell(color, 'bishop', '&#9821;'), 'td' : '' }, 
+						{'data' : new Cell(color, 'knight', '&#9822;'), 'td' : '' }, {'data' : new Cell(color, 'rook', '&#9820;'), 'td' : ''   } ];
 		}
 		
 	}
 	EmptyCells = function() {
-		return ['', new Cell('', '', ''), new Cell('', '', ''), new Cell('', '', ''), new Cell('', '', ''), 
-				new Cell('', '', ''), new Cell('', '', ''), new Cell('', '', ''), new Cell('', '', '') ];
+		return ['', {'data' : new Cell('', '', ''), 'td' : '' }, {'data' : new Cell('', '', ''), 'td' : '' }, 
+					{'data' : new Cell('', '', ''), 'td' : '' }, {'data' : new Cell('', '', ''), 'td' : '' }, 
+					{'data' : new Cell('', '', ''), 'td' : '' }, {'data' : new Cell('', '', ''), 'td' : '' },
+					{'data' : new Cell('', '', ''), 'td' : '' }, {'data' : new Cell('', '', ''), 'td' : '' } ];
 	},
 	PawnCells = function(row_no) {
 		
@@ -52,8 +65,10 @@ function InitializeGame() {
 		}
 
 		name = 'pawn';
-		return ['', new Cell(color, name, text),new Cell(color, name, text),new Cell(color, name, text),new Cell(color, name, text),
-				new Cell(color, name, text),new Cell(color, name, text),new Cell(color, name, text),new Cell(color, name, text)];
+		return ['', {'data' : new Cell(color, name, text), 'td' : '' }, {'data' : new Cell(color, name, text), 'td' : '' },
+					{'data' : new Cell(color, name, text), 'td' : '' }, {'data' : new Cell(color, name, text), 'td' : '' },
+					{'data' : new Cell(color, name, text), 'td' : '' }, {'data' : new Cell(color, name, text), 'td' : '' },
+					{'data' : new Cell(color, name, text), 'td' : '' }, {'data' : new Cell(color, name, text), 'td' : '' }];
 	}
 	InitializeBoard = function() {
 		
@@ -85,7 +100,6 @@ function InitializeGame() {
 		
 	},
 	DrawBoard = function() {
-		
 		InitializeBoard();
 		var table = document.createElement('table');
 		table.cellSpacing = 0;
@@ -95,25 +109,427 @@ function InitializeGame() {
 			
 			var row = document.createElement('tr');
 			for(j = 1; j< 9; j++) {
-			
 				var column = document.createElement('td');
-				column.innerHTML = rows[i][j].text;
+				rows[i][j].td = column;
+				column.id = i * 8 + j;
+				column.innerHTML = rows[i][j].data.text;
 				if((i + j) % 2 == 0) {
 					column.className = 'cell';
 				} else {
 					column.className = 'cell alternate-bg';
 				}
-				SetRowColumnNumber(column, i, j);
+				AttachEvents(column, i, j);
 				row.appendChild(column);
 			}
 			table.appendChild(row);
 		}
 		document.body.appendChild(table);
-	},
-	SetRowColumnNumber = function (td, row, column) {
-		td.onclick = function() {
-			alert('clicked on row ' + row + ' column ' + column );
+		div = document.createElement('div');
+		div.className = 'info';
+		div.innerHTML = '';
+		document.body.appendChild(div);
+		
+		button = document.createElement('button');
+		button.innerHTML = 'Undo';
+		button.onclick = function() {
+			var last_step = UndoSteps.pop();
+			rows[last_step.source.row][last_step.source.column].data = last_step.source.cell.data; 
+			rows[last_step.source.row][last_step.source.column].td.innerHTML = last_step.source.cell.data.text;
+
+			rows[last_step.destination.row][last_step.destination.column].data = last_step.destination.cell.data; 
+			rows[last_step.destination.row][last_step.destination.column].td.innerHTML = last_step.destination.cell.data.text; 
+
 		}
+		document.body.appendChild(button);
+		
+
+	},
+	AttachEvents = function (td, row, column) {
+		td.onclick = function() {
+			if(SourceCell.row === 0 && SourceCell.column === 0) {
+			
+				if( rows[row][column].data.text.length === 0 ) {
+					div.innerHTML = 'Empty cell selected.<br/>' + div.innerHTML;
+					return false;
+				}
+				SourceCell = {'row': row, 'column' : column};
+				td.className += ' selectedcell';
+				div.innerHTML = rows[row][column].data.css_class[0] + ' ' + rows[row][column].data.text  +
+								' selected (row = ' + row + ', column ' + column + ')<br/>' + div.innerHTML;
+				GetPossibleDestinationCells(row, column);
+			} else {
+				if( rows[row][column].data.text.length !== 0 ) {
+					if(row === SourceCell.row && column === SourceCell.column) {
+						rows[SourceCell.row][SourceCell.column].td.className = rows[SourceCell.row][SourceCell.column].td.className.replace(/\bselectedcell\b/,'');
+						div.innerHTML = 'clicked on same selected cell. Deselecting.<br/>' + div.innerHTML; 
+						ResetPossibleDestinationCells();
+						SourceCell = {'row' : 0, 'column' : 0};;
+					} else {
+						for(var i = 0; i < PossibleDestinationCell.length; i++) {
+							if( rows[row][column].td === PossibleDestinationCell[i]) {
+								break;
+							}
+						}
+						if(i === PossibleDestinationCell.length) {
+							div.innerHTML = 'Clicked on an existing piece cell<br/>' + div.innerHTML;
+							return false;
+						}
+					}
+				} 
+				for(var i = 0; i < PossibleDestinationCell.length; i++) {
+					if( rows[row][column].td === PossibleDestinationCell[i]) {
+						break;
+					}
+				}
+				if(i === PossibleDestinationCell.length) {
+					div.innerHTML = 'Invalid Move<br/>' + div.innerHTML;
+					return false;
+				}
+				
+				//push into undo array
+				UndoSteps.push({'source' : new Steps(SourceCell.row, SourceCell.column, rows[SourceCell.row][SourceCell.column]),
+								'destination' : new Steps(row, column, rows[row][column])});
+				var team_color = rows[SourceCell.row][SourceCell.column].data.css_class[0];
+				var name = rows[SourceCell.row][SourceCell.column].data.css_class[1];
+				var text = rows[SourceCell.row][SourceCell.column].data.text;
+				rows[row][column] = {'data' : new Cell (team_color, name, text), 'td' :   rows[row][column].td};
+
+				rows[SourceCell.row][SourceCell.column].td.innerHTML = '';
+				rows[SourceCell.row][SourceCell.column].td.className = rows[SourceCell.row][SourceCell.column].td.className.replace(/\bselectedcell\b/,'');
+				td.innerHTML = rows[row][column].data.text;
+				rows[SourceCell.row][SourceCell.column] = { 'data' :new Cell('', '', ''), 'td' : rows[SourceCell.row][SourceCell.column].td};
+
+				ResetPossibleDestinationCells();
+				div.innerHTML = 'Moved ' + rows[row][column].data.text + ' from (row ' + SourceCell.row + ' column ' + SourceCell.column +
+								') to (row '  + row + ' column '  + column + ')<br/>' + div.innerHTML;
+				SourceCell = {'row' : 0, 'column' : 0};
+			}
+		}
+	},
+	GetPossibleDestinationCells = function(row, column) {
+		
+		PossibleDestinationCell = new Array();
+		
+		if(rows[row][column].data.css_class[1] == 'pawn') {
+			GetPossibleDestinationCellsForPawn(row, column);
+		} else if(rows[row][column].data.css_class[1] == 'rook') {
+			GetPossibleDestinationCellsForRook(row, column);
+		} else if(rows[row][column].data.css_class[1] == 'knight') {
+			GetPossibleDestinationCellsForKnight(row, column);
+		} else if(rows[row][column].data.css_class[1] == 'bishop') {
+			GetPossibleDestinationCellsForBishop(row, column);
+		} else if(rows[row][column].data.css_class[1] == 'king') {
+			GetPossibleDestinationCellsForRook(row, column);
+			GetPossibleDestinationCellsForBishop(row, column);
+		} else if(rows[row][column].data.css_class[1] == 'queen') {
+			GetPossibleDestinationCellsForQueen(row, column);
+		} 
+		
+		ShowPossibleDestinationCells();
+	},
+	ShowPossibleDestinationCells = function () {
+		for(i = 0; i < PossibleDestinationCell.length; i++) {
+			PossibleDestinationCell[i].className += ' selectedcell';
+		}
+	},
+	ResetPossibleDestinationCells = function() {
+		if(PossibleDestinationCell.length == 0){
+			return false;
+		}
+		while(PossibleDestinationCell.length) {
+			var td = PossibleDestinationCell.pop();
+			td.className = td.className.replace(/\bselectedcell\b/,'');
+		}
+	},
+	GetPossibleDestinationCellsForPawn = function(row, column) {
+	
+		if(rows[row][column].data.css_class[0] == 'white') {
+			if(rows[row+1][column].data.css_class[0] == '') {
+				PossibleDestinationCell.push(rows[row+1][column].td);
+			}
+			if(row === 2 && (rows[row+2][column].data.css_class[0] != 'white')) {
+				PossibleDestinationCell.push(rows[row+2][column].td);
+			}
+			if(row + 1 < 9 && column + 1 < 9) {
+				if(rows[row+1][column+1].data.css_class[0] == 'black') {
+					PossibleDestinationCell.push(rows[row+1][column+1].td);
+				}
+			}
+			if(row + 1 < 9 && column - 1 > 0) {
+				if(rows[row+1][column-1].data.css_class[0] == 'black') {
+					PossibleDestinationCell.push(rows[row+1][column-1].td)
+				}
+			}
+		}
+		if(rows[row][column].data.css_class[0] == 'black') {
+			if(rows[row-1][column].data.css_class[0] == '') {
+				PossibleDestinationCell.push(rows[row-1][column].td);
+			}
+			if(row === 7 && (rows[row-2][column].data.css_class[0] != 'black')) {
+				PossibleDestinationCell.push(rows[row-2][column].td);
+			}
+			if(row - 1 > 0 && column - 1 > 0) {
+				if(rows[row-1][column-1].data.css_class[0] == 'white') {
+					PossibleDestinationCell.push(rows[row-1][column-1].td);
+				}
+			}
+			if(row - 1 > 0 && column + 1 < 9) {
+				if(rows[row-1][column+1].data.css_class[0] == 'white') {
+					PossibleDestinationCell.push(rows[row-1][column+1].td)
+				}
+			}
+		}
+	},
+	GetPossibleDestinationCellsForRook = function(row, column) {
+		
+		//rowwise low to high
+		for(i = row + 1 ; i < 9; i++) {
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[i][column].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[i][column].td);
+					if(rows[i][column].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[i][column].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[i][column].td);
+					if(rows[i][column].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+		}
+		
+		//rowwise high to low
+		for(i = row - 1 ; i > 0; i--) {
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[i][column].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[i][column].td);
+					if(rows[i][column].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[i][column].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[i][column].td);
+					if(rows[i][column].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+		}
+		
+		//columns from left to right
+		for(j = column + 1; j < 9; j++) {
+			
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[row][j].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[row][j].td);
+					if(rows[row][j].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[row][j].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[row][j].td);
+					if(rows[row][j].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+		}
+
+		//columns from right to left
+		for(j = column - 1; j > 0; j--) {
+
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[row][j].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[row][j].td);
+					if(rows[row][j].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[row][j].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[row][j].td);
+					if(rows[row][j].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+		}
+	},
+	GetPossibleDestinationCellsForKnight = function(row, column) {
+		var knight_next_steps = [
+									{'row' : row+1, 'column' : column + 2}, {'row' : row + 2, 'column' : column + 1},
+									{'row' : row-1, 'column' : column + 2}, {'row' : row - 2, 'column' : column + 1},
+									{'row' : row+1, 'column' : column - 2}, {'row' : row + 2, 'column' : column - 1},
+									{'row' : row-1, 'column' : column - 2}, {'row' : row - 2, 'column' : column - 1},
+								];
+
+		for(var i = 0 ; i < knight_next_steps.length; i++) {
+			if(knight_next_steps[i].row > 0 && knight_next_steps[i].row < 9 &&
+				knight_next_steps[i].column > 0 && knight_next_steps[i].column < 9 &&
+				rows[knight_next_steps[i].row][knight_next_steps[i].column].data.css_class[0] != rows[row][column].data.css_class[0]) {
+					
+					PossibleDestinationCell.push(rows[knight_next_steps[i].row][knight_next_steps[i].column].td);
+			}
+		}
+		
+	},
+	GetPossibleDestinationCellsForBishop = function(row, column) {
+		
+		//rowwise low to high
+		var i = 1;
+		while(row + i < 9 && column + i < 9) {
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[row + i][column + i].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[row + i][column + i].td);
+					if(rows[row + i][column + i].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[row + i][column + i].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[row + i][column + i].td);
+					if(rows[row + i][column + i].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+			i++;
+		}
+		
+		i = 1;
+		while(row + i < 9 && column + i < 9) {
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[row + i][column + i].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[row + i][column + i].td);
+					if(rows[row + i][column + i].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[row + i][column + i].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[row + i][column + i].td);
+					if(rows[row + i][column + i].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+			i++;
+		}
+
+		i = 1;
+		while(row + i < 9 && column - i > 0) {
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[row + i][column - i].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[row + i][column - i].td);
+					if(rows[row + i][column - i].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[row + i][column - i].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[row + i][column - i].td);
+					if(rows[row + i][column - i].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+			i++;
+		}
+		i = 1;
+		while(row - i > 0 && column + i < 9) {
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[row - i][column + i].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[row - i][column + i].td);
+					if(rows[row - i][column + i].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[row - i][column + i].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[row - i][column + i].td);
+					if(rows[row - i][column + i].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+			i++;
+		}
+		
+		i = 1;
+		while(row - i > 0 && column - i > 0) {
+			if(rows[row][column].data.css_class[0] == 'white') {
+				if(rows[row - i][column - i].data.css_class[0] != 'white') {
+					PossibleDestinationCell.push(rows[row - i][column - i].td);
+					if(rows[row - i][column - i].data.css_class[0] == 'black') {
+						break;
+					}
+				} else {
+					break;
+				}
+			} else {
+				if(rows[row - i][column - i].data.css_class[0] != 'black') {
+					PossibleDestinationCell.push(rows[row - i][column - i].td);
+					if(rows[row - i][column - i].data.css_class[0] == 'white') {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+			i++;
+		}
+	},
+	GetPossibleDestinationCellsForQueen = function(row, column) {
+		var king_next_steps = [
+									{'row' : row + 1, 'column' : column}, {'row' : row + 1, 'column' : column -1}, {'row' : row + 1, 'column' : column + 1},
+									{'row' : row , 'column' : column - 1}, {'row' : row , 'column' : column + 1},
+									{'row' : row - 1, 'column' : column}, {'row' : row - 1, 'column' : column -1}, {'row' : row - 1, 'column' : column + 1}
+							  ];
+		for(var i = 0; i < king_next_steps.length; i++) {
+			if(king_next_steps[i].row < 9 && king_next_steps[i].column < 9 && 
+				king_next_steps[i].row > 0 && king_next_steps[i].column > 0 && 
+				rows[row][column].data.css_class[0] != rows[king_next_steps[i].row][king_next_steps[i].column].data.css_class[0]) {
+				PossibleDestinationCell.push(rows[king_next_steps[i].row][king_next_steps[i].column].td);
+			}
+		}
+		
 	};
 	DrawBoard();	
 }
